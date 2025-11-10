@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # 1. Servidor Eureka
+  eureka-server:
+    build:
+      context: ./eureka-server
+    ports:
+      - "8761:8761" # Expone el puerto de Eureka al host
+
+  # 2. Base de Datos MySQL
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306" # Expone el puerto de MySQL al host (para depuración)
+    environment:
+      MYSQL_ROOT_PASSWORD: root # La clave que pusimos en application.properties
+      MYSQL_DATABASE: asistente_db # La base de datos
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  # 3. Servicio de Tareas (CRUD)
+  servicio-tareas:
+    build:
+      context: ./servicio-tareas
+    ports:
+      - "8081:8081" # Expone el puerto del API al host
+    environment:
+      # Sobrescribimos las variables de application-docker.properties
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/asistente_db
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - mysql       # No arranca hasta que mysql esté listo
+      - eureka-server # No arranca hasta que eureka esté listo
+
+  # 4. Servicio de Lógica Prolog
+  servicio-prolog:
+    build:
+      context: ./servicio-prolog
+    ports:
+      - "8082:8082" # Expone el puerto del API de Prolog
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+
+volumes:
+  mysql-data: # Volumen persistente para la base de datos
